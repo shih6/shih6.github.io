@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TLSCAN to COE Converter</title>
+</head>
+
+<body>
+    <h1>TLSCAN to COE Converter</h1>
+    <input type="file" id="fileInput">
+    <button onclick="convertAndDownload()">Convert and Download COE</button>
+
+    <script>
+        function convertAndDownload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file to convert.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const tlscanContent = e.target.result;
+                const xmlStr = '<q id="a"><span id="b">你好！</span></q>';
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(tlscanContent, "application/xml");
+                const node = doc.querySelector('bytes');
+                if (node) {
+                    console.error("解析时遇到错误");
+                    alert("解析时遇到错误");
+                    return;
+                }
+                // Conversion logic
+                let bs = node.textContent.replaceAll("\n","").split(" ").join("")
+                let coeContent = `\n; Converted to COE from "${file.name}" on ${new Date()}\n`;
+                coeContent += 'memory_initialization_radix=16;\nmemory_initialization_vector=\n';
+
+                for (let y = 0; y < 16; y++) {
+                    coeContent += `\n; ${(y * 256).toString(16).toUpperCase().padStart(4, '0')}\n`;
+
+                    for (let x = 0; x < 16; x++) {
+                        coeContent += `${bs.substring(0, 8)},${bs.substring(8, 16)},${bs.substring(16, 24)},${bs.substring(24, 32)},\n`;
+                        bs = bs.substring(32);
+                    }
+                }
+
+                coeContent += ';\n';
+                // Create a Blob from the COE content
+                const blob = new Blob([coeContent], { type: 'text/plain' });
+
+                // Create a temporary anchor element to trigger the download
+                const a = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                a.href = url;
+                a.download = file.name.replace('.tlscan', '.coe');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+
+</html>
